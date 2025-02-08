@@ -1,18 +1,14 @@
+#![feature(iter_array_chunks)]
 pub mod bc7_unorm;
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::BufReader, path::Path};
+    use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
 
-    use bitvec::{
-        field::BitField,
-        order::{Lsb0, Msb0},
-        store::BitStore,
-        view::BitView,
-    };
+    use bitvec::{field::BitField, order::Msb0, view::BitView};
     use ddsfile::{Caps, DataFormat, Dds, FourCC};
 
-    use crate::bc7_unorm::{extract_mode, PARTITION_TABLE};
+    use crate::bc7_unorm::{decode_block_mode_0, PARTITION_TABLE};
 
     #[test]
     fn test_load_art() {
@@ -62,39 +58,25 @@ mod tests {
                 .map(|block| block.view_bits::<Msb0>())
                 .collect::<Vec<_>>();
             println!("num blocks: {}", blocks.len());
-            println!("{}", blocks[0]);
 
-            let mode = blocks[0].first_one().unwrap();
-            println!("mode: {}", mode);
-            assert_eq!(mode, 0);
+            let modes = blocks.iter().map(|b| b.first_one().unwrap()).fold(
+                HashMap::new(),
+                |mut acc, mode| {
+                    acc.entry(mode)
+                        .and_modify(|count: &mut usize| *count += 1)
+                        .or_default();
 
-            let partition = blocks[0][1..5].load::<usize>();
-            let partition_table = PARTITION_TABLE[partition];
-            println!("partition: {} {:?}", partition, partition_table);
+                    acc
+                },
+            );
+            println!("modes: {:?}", modes);
 
-            let ps = &blocks[0][77..83];
-
-            // Rx6 Gx6 Bx6
-            let mut rgbs = blocks[0][5..77]
-                .chunks_exact(4)
-                .map(|c| c.load::<u8>())
-                .enumerate()
-                .map(|(i, rgb)| if ps[i % 4] { rgb << 1 } else { rgb })
+            let decoded = blocks
+                .into_iter()
+                .filter(|b| b.first_one().unwrap() == 0)
+                .map(decode_block_mode_0)
                 .collect::<Vec<_>>();
-            println!("rgbs: {:?}", rgbs);
-
-            let indices = &blocks[0][83..]
-                .chunks_exact(3)
-                .map(|c| c.load::<u8>())
-                .collect::<Vec<_>>();
-
-            println!("indices: {:?}", indices);
-
-            //let mode = extract_mode(blocks[0]);
-            //println!("mode: {}", mode);
-
-            //let partition = extract_partition(&blocks[0].try_into().unwrap(), mode);
-            //println!("partition: {}", partition);
+            println!("done {}", decoded.len());
         }
     }
 }
