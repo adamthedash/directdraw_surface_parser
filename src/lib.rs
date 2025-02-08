@@ -5,10 +5,10 @@ pub mod bc7_unorm;
 mod tests {
     use std::{collections::HashMap, fs::File, io::BufReader, path::Path};
 
-    use bitvec::{field::BitField, order::Msb0, view::BitView};
+    use bitvec::{order::Msb0, view::BitView};
     use ddsfile::{Caps, DataFormat, Dds, FourCC};
 
-    use crate::bc7_unorm::{decode_block_mode_0, PARTITION_TABLE};
+    use crate::bc7_unorm::{decode_block_mode_0, decode_block_mode_1};
 
     #[test]
     fn test_load_art() {
@@ -71,10 +71,18 @@ mod tests {
             );
             println!("modes: {:?}", modes);
 
+            //decode_block_mode_0(&blocks[0]);
+
             let decoded = blocks
                 .into_iter()
-                .filter(|b| b.first_one().unwrap() == 0)
-                .map(decode_block_mode_0)
+                .filter_map(|b| {
+                    let decoded = match b.first_one().unwrap() {
+                        0 => decode_block_mode_0(b),
+                        1 => decode_block_mode_1(b),
+                        _ => return None,
+                    };
+                    Some(decoded)
+                })
                 .collect::<Vec<_>>();
             println!("done {}", decoded.len());
         }
