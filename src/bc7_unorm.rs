@@ -169,16 +169,6 @@ fn interpolate_u8(min: u8, max: u8, t: u8) -> u8 {
     low + ((high - low) as u16 * t as u16 / 255) as u8
 }
 
-fn main() {
-    let min = 50;
-    let max = 200;
-
-    let t = 128; // Midpoint (halfway)
-
-    let result = interpolate_u8(min, max, t);
-    println!("Interpolated value: {}", result);
-}
-
 pub fn decode_block_mode_0(block: &BitSlice<u8, Msb0>) -> [RGB; 16] {
     assert_eq!(block.len(), 128);
 
